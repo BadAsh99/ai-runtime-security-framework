@@ -6,15 +6,19 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application
-COPY app.py .
+# Copy application and shared module
+COPY app_b_finance.py .
+COPY ../shared shared/
+
+# Add shared to Python path
+ENV PYTHONPATH="/app:${PYTHONPATH}"
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8002
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=10s \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8002/health || exit 1
 
 # Run application
-CMD ["python", "app.py"]
+CMD ["python", "app_b_finance.py"]

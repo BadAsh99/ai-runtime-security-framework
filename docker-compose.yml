@@ -1,103 +1,161 @@
-version: "3.9"
-
-# AIRS Runtime Security Framework — Multi-Application LLM Security Lab
-# Orchestrates: gateway + 3 LLM apps + dashboard
+version: '3.8'
 
 services:
-
+  # ============================================================================
+  # FastAPI Gateway (Central)
+  # ============================================================================
   gateway:
     build:
-      context: .
-      dockerfile: gateway/Dockerfile
-    container_name: airs-gateway
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: ai-runtime-gateway
     ports:
       - "8000:8000"
     environment:
-      - APP_A_URL=http://app-a:8001
-      - APP_B_URL=http://app-b:8002
-      - APP_C_URL=http://app-c:8003
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      GATEWAY_HOST: 0.0.0.0
+      GATEWAY_PORT: 8000
+      LOG_LEVEL: INFO
+      AUDIT_LOG_FILE: audit.log
     volumes:
-      - audit_logs:/tmp/airs_audit
-    depends_on:
-      - app-a
-      - app-b
-      - app-c
-    restart: unless-stopped
+      - ./gateway:/app
+      - ./logs:/app/logs
     networks:
-      - airs-net
-
-  app-a:
+      - ai-runtime
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - content-moderation
+      - finance-analysis
+      - support-chatbot
+    command: python app.py
+    restart: unless-stopped
+  
+  # ============================================================================
+  # Microservice 1: Content Moderation
+  # ============================================================================
+  content-moderation:
     build:
-      context: .
-      dockerfile: applications/Dockerfile
-    container_name: airs-app-a
-    command: uvicorn app_a_content:app --host 0.0.0.0 --port 8001
+      context: ./services/content_moderation
+      dockerfile: Dockerfile
+    container_name: ai-runtime-content-mod
     ports:
       - "8001:8001"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      SERVICE_NAME: content-moderation
+      SERVICE_PORT: 8001
+      LOG_LEVEL: INFO
+    volumes:
+      - ./services/content_moderation:/app
     networks:
-      - airs-net
+      - ai-runtime
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    command: python app_a_content.py
     restart: unless-stopped
-
-  app-b:
+  
+  # ============================================================================
+  # Microservice 2: Finance Analysis
+  # ============================================================================
+  finance-analysis:
     build:
-      context: .
-      dockerfile: applications/Dockerfile
-    container_name: airs-app-b
-    command: uvicorn app_b_finance:app --host 0.0.0.0 --port 8002
+      context: ./services/finance_analysis
+      dockerfile: Dockerfile
+    container_name: ai-runtime-finance
     ports:
       - "8002:8002"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      SERVICE_NAME: finance-analysis
+      SERVICE_PORT: 8002
+      LOG_LEVEL: INFO
+    volumes:
+      - ./services/finance_analysis:/app
     networks:
-      - airs-net
+      - ai-runtime
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    command: python app_b_finance.py
     restart: unless-stopped
-
-  app-c:
+  
+  # ============================================================================
+  # Microservice 3: Support Chatbot
+  # ============================================================================
+  support-chatbot:
     build:
-      context: .
-      dockerfile: applications/Dockerfile
-    container_name: airs-app-c
-    command: uvicorn app_c_support:app --host 0.0.0.0 --port 8003
+      context: ./services/support_chatbot
+      dockerfile: Dockerfile
+    container_name: ai-runtime-support
     ports:
       - "8003:8003"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      SERVICE_NAME: support-chatbot
+      SERVICE_PORT: 8003
+      LOG_LEVEL: INFO
+    volumes:
+      - ./services/support_chatbot:/app
     networks:
-      - airs-net
+      - ai-runtime
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    command: python app_c_support.py
     restart: unless-stopped
-
+  
+  # ============================================================================
+  # Streamlit Dashboard
+  # ============================================================================
   dashboard:
     build:
-      context: .
-      dockerfile: dashboard/Dockerfile
-    container_name: airs-dashboard
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: ai-runtime-dashboard
     ports:
       - "8501:8501"
     environment:
-      - GATEWAY_URL=http://gateway:8000
-      - APP_A_URL=http://app-a:8001
-      - APP_B_URL=http://app-b:8002
-      - APP_C_URL=http://app-c:8003
+      STREAMLIT_SERVER_HEADLESS: true
+      STREAMLIT_SERVER_PORT: 8501
+      STREAMLIT_SERVER_ADDRESS: 0.0.0.0
+    volumes:
+      - ./dashboard:/app
+    networks:
+      - ai-runtime
     depends_on:
       - gateway
-    networks:
-      - airs-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    command: streamlit run streamlit_app.py
     restart: unless-stopped
 
+# ============================================================================
+# Network
+# ============================================================================
+
 networks:
-  airs-net:
+  ai-runtime:
     driver: bridge
 
+# ============================================================================
+# Volumes
+# ============================================================================
+
 volumes:
-  audit_logs:
+  logs:
+    driver: local

@@ -1,12 +1,75 @@
-.env
-*.pyc
+# Python
 __pycache__/
-.venv/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
 venv/
-*.egg-info/
-dist/
+ENV/
 build/
-.pytest_cache/
-.mypy_cache/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv
+.venv
+env
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
 *.log
-/tmp/airs_audit/
+logs/
+audit.log
+*.out
+
+# Reports
+reports/
+*.json
+!.env.example
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+pgdata/
+
+# Misc
+.tmp/
+temp/
+cache/
+*.bak
