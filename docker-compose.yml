@@ -1,0 +1,103 @@
+version: "3.9"
+
+# AIRS Runtime Security Framework — Multi-Application LLM Security Lab
+# Orchestrates: gateway + 3 LLM apps + dashboard
+
+services:
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: airs-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_A_URL=http://app-a:8001
+      - APP_B_URL=http://app-b:8002
+      - APP_C_URL=http://app-c:8003
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+    volumes:
+      - audit_logs:/tmp/airs_audit
+    depends_on:
+      - app-a
+      - app-b
+      - app-c
+    restart: unless-stopped
+    networks:
+      - airs-net
+
+  app-a:
+    build:
+      context: .
+      dockerfile: applications/Dockerfile
+    container_name: airs-app-a
+    command: uvicorn app_a_content:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+    networks:
+      - airs-net
+    restart: unless-stopped
+
+  app-b:
+    build:
+      context: .
+      dockerfile: applications/Dockerfile
+    container_name: airs-app-b
+    command: uvicorn app_b_finance:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+    networks:
+      - airs-net
+    restart: unless-stopped
+
+  app-c:
+    build:
+      context: .
+      dockerfile: applications/Dockerfile
+    container_name: airs-app-c
+    command: uvicorn app_c_support:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+    networks:
+      - airs-net
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: airs-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - GATEWAY_URL=http://gateway:8000
+      - APP_A_URL=http://app-a:8001
+      - APP_B_URL=http://app-b:8002
+      - APP_C_URL=http://app-c:8003
+    depends_on:
+      - gateway
+    networks:
+      - airs-net
+    restart: unless-stopped
+
+networks:
+  airs-net:
+    driver: bridge
+
+volumes:
+  audit_logs:
