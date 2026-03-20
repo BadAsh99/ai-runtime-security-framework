@@ -12,6 +12,7 @@ Phase 1 Implementation:
 import json
 import logging
 import re
+import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from pathlib import Path
@@ -20,6 +21,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel, Field
+
+# Phase 2: Semantic detection imports
+from gateway.llm_client import get_llm_client
+from gateway.detectors import SemanticInjectionDetector
 
 # ============================================================================
 # Configuration
@@ -220,7 +225,70 @@ app = FastAPI(
     version="1.0.0",
 )
 
-injection_detector = InjectionDetector()
+# Phase 1: Keep pattern-based detector as fallback
+pattern_injection_detector = InjectionDetector()
+
+# Phase 2: Initialize semantic detector (uses real LLMs)
+semantic_injection_detector = None  # Lazy-loaded on first request
+
+async def get_semantic_detector() -> SemanticInjectionDetector:
+    """Get or initialize semantic detector (lazy load)."""
+    global semantic_injection_detector
+    if semantic_injection_detector is None:
+        try:
+            llm_client = get_llm_client()
+            semantic_injection_detector = SemanticInjectionDetector(llm_client=llm_client)
+            logger.info(f"Initialized semantic detector with LLM provider: {llm_client.provider}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize semantic detector: {e}. Falling back to pattern detection.")
+            semantic_injection_detector = None
+    return semantic_injection_detector
+
+
+async def detect_injection(text: str, service_context: str = "") -> Dict[str, Any]:
+    """
+    Detect injection using semantic detector (with pattern-based fallback).
+    
+    Try semantic detection first (real LLM analysis).
+    Fall back to pattern detection if semantic fails.
+    
+    Args:
+        text: Text to analyze
+        service_context: Service context for semantic analysis
+        
+    Returns:
+        Detection result with: is_injection, risk_level, confidence, detector, etc.
+    """
+    # Try semantic detection first (Phase 2)
+    semantic_detector = await get_semantic_detector()
+    if semantic_detector is not None:
+        try:
+            result = await semantic_detector.detect(text, service_context=service_context)
+            return {
+                "is_injection": result.is_injection,
+                "risk_level": result.risk_level,
+                "confidence": result.confidence,
+                "reasoning": result.reasoning,
+                "similar_attacks": result.similar_attacks,
+                "detector": result.detector_type,
+                "llm_provider": result.llm_provider,
+                "llm_model": result.llm_model,
+                "latency_ms": result.latency_ms,
+            }
+        except Exception as e:
+            logger.warning(f"Semantic detection failed, falling back to pattern: {e}")
+    
+    # Fallback to pattern-based detection (Phase 1)
+    detection = pattern_injection_detector.detect(text)
+    return {
+        "is_injection": detection["is_injection"],
+        "risk_level": detection["risk_level"],
+        "confidence": detection["confidence"],
+        "detected_keywords": detection["detected_keywords"],
+        "detected_patterns": detection["detected_patterns"],
+        "detector": "pattern-based",
+        "latency_ms": 0,
+    }
 
 
 @app.middleware("http")
@@ -246,14 +314,16 @@ async def audit_middleware(request: Request, call_next):
     # Determine if injection detected (from body content)
     injection_detected = False
     risk_level = "none"
+    detector_used = "none"
     
     # Check all text-like fields in request body
     for key, value in body.items():
-        if isinstance(value, str):
-            detection = injection_detector.detect(value)
+        if isinstance(value, str) and value.strip():
+            detection = await detect_injection(value)
             if detection["is_injection"]:
                 injection_detected = True
                 risk_level = detection["risk_level"]
+                detector_used = detection.get("detector", "unknown")
                 break
     
     # Log audit event
@@ -264,6 +334,7 @@ async def audit_middleware(request: Request, call_next):
         "path": request.url.path,
         "injection_detected": injection_detected,
         "risk_level": risk_level,
+        "detector": detector_used,
         "request_body": body,
         "response_status": response.status_code,
         "response_time_ms": round(elapsed_ms, 2),
@@ -304,12 +375,12 @@ async def content_moderation(request: TextRequest):
     """
     Route to content moderation service.
     
-    Detects injection in request, forwards to service if safe.
+    Detects injection in request using semantic + pattern detection, forwards if safe.
     """
     text = request.text or ""
     
-    # Detect injection
-    detection = injection_detector.detect(text)
+    # Detect injection (Phase 2: semantic + Phase 1: pattern fallback)
+    detection = await detect_injection(text, service_context="content-moderation")
     
     if detection["is_injection"] and detection["risk_level"] == "high":
         raise HTTPException(
@@ -337,12 +408,12 @@ async def finance_analysis(request: TextRequest):
     """
     Route to finance analysis service.
     
-    Detects injection in request, forwards to service if safe.
+    Detects injection in request using semantic + pattern detection, forwards if safe.
     """
     query = request.query or ""
     
-    # Detect injection
-    detection = injection_detector.detect(query)
+    # Detect injection (Phase 2: semantic + Phase 1: pattern fallback)
+    detection = await detect_injection(query, service_context="finance-analysis")
     
     if detection["is_injection"] and detection["risk_level"] == "high":
         raise HTTPException(
@@ -370,12 +441,12 @@ async def support_chatbot(request: TextRequest):
     """
     Route to support chatbot service.
     
-    Detects injection in request, forwards to service if safe.
+    Detects injection in request using semantic + pattern detection, forwards if safe.
     """
     message = request.message or ""
     
-    # Detect injection
-    detection = injection_detector.detect(message)
+    # Detect injection (Phase 2: semantic + Phase 1: pattern fallback)
+    detection = await detect_injection(message, service_context="support-chatbot")
     
     if detection["is_injection"] and detection["risk_level"] == "high":
         raise HTTPException(
@@ -401,11 +472,11 @@ async def support_chatbot(request: TextRequest):
 @app.post("/scan")
 async def scan_vulnerability(request: ScanRequest):
     """
-    Scan input for vulnerabilities using the scanner module.
+    Scan input for vulnerabilities using semantic + pattern detection.
     
     Returns detection results without blocking.
     """
-    detection = injection_detector.detect(request.input)
+    detection = await detect_injection(request.input, service_context="scan")
     
     return {
         "input": request.input,
