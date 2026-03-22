@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AIRS Dashboard{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="/static/js/dashboard.js" defer></script>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <span class="shield">⬡</span>
+    AIRS Security Framework
+  </a>
+  <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>Overview</a>
+  <a href="/attack-chains" {% if request.url.path == '/attack-chains' %}class="active"{% endif %}>Attack Chains</a>
+  <a href="/red-team" {% if request.url.path == '/red-team' %}class="active"{% endif %}>Red Team</a>
+  <a href="/audit" {% if request.url.path == '/audit' %}class="active"{% endif %}>Audit Log</a>
+  <div class="nav-right">
+    <span class="badge live">● LIVE</span>
+    <a href="http://localhost:8000/docs" target="_blank" class="badge">Gateway API</a>
+    <a href="http://localhost:8501" target="_blank" class="badge">Streamlit</a>
+  </div>
+</nav>
+
+<div class="page">
+  {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

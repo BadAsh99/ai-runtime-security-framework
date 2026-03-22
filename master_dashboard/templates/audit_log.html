@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}AIRS — Audit Log{% endblock %}
+{% block content %}
+
+<div class="page-title">Audit Log Stream</div>
+<div class="page-subtitle">Real-time structured event log from all services · SSE connected</div>
+
+<div style="display:flex;gap:12px;margin-bottom:16px;align-items:center">
+  <span class="badge live">● SSE Connected</span>
+  <select id="filter-level" onchange="applyFilter()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:13px">
+    <option value="">All levels</option>
+    <option value="critical">Critical</option>
+    <option value="high">High</option>
+    <option value="medium">Medium</option>
+    <option value="low">Low</option>
+    <option value="clean">Clean</option>
+  </select>
+  <select id="filter-app" onchange="applyFilter()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:13px">
+    <option value="">All services</option>
+    <option value="gateway">gateway</option>
+    <option value="content-mod">content-mod</option>
+    <option value="finance">finance</option>
+    <option value="support">support</option>
+  </select>
+  <button class="btn btn-ghost" onclick="clearFeed()">Clear</button>
+  <span id="entry-count" style="color:var(--text-muted);font-size:13px;margin-left:auto">0 events</span>
+</div>
+
+<div class="card" style="padding:0">
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Service</th>
+        <th>Threat Level</th>
+        <th>Action</th>
+        <th>Event Type</th>
+        <th>Matched Patterns</th>
+        <th>Latency</th>
+      </tr>
+    </thead>
+    <tbody id="audit-table-body">
+      <tr><td colspan="7" style="color:var(--text-muted);text-align:center;padding:24px">Connecting to audit stream...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+let allEntries = [];
+
+function applyFilter() {
+  const level = document.getElementById('filter-level').value;
+  const app   = document.getElementById('filter-app').value;
+  const tbody = document.getElementById('audit-table-body');
+  const rows  = tbody.querySelectorAll('tr[data-level]');
+  rows.forEach(row => {
+    const matchLevel = !level || row.dataset.level === level;
+    const matchApp   = !app   || row.dataset.app === app;
+    row.style.display = (matchLevel && matchApp) ? '' : 'none';
+  });
+}
+
+function clearFeed() {
+  allEntries = [];
+  const tbody = document.getElementById('audit-table-body');
+  tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);text-align:center;padding:24px">Feed cleared</td></tr>';
+  document.getElementById('entry-count').textContent = '0 events';
+}
+
+function addAuditRow(data) {
+  allEntries.push(data);
+  const level   = data.threat_level || 'clean';
+  const app     = data.app_id || 'gateway';
+  const action  = data.action_taken || '—';
+  const ts      = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—';
+  const etype   = data.event_type || '—';
+  const patterns = (data.matched_patterns || []).join(', ') || '—';
+  const latency = data.latency_ms != null ? `${data.latency_ms}ms` : '—';
+
+  const tbody = document.getElementById('audit-table-body');
+  // Remove placeholder
+  const placeholder = tbody.querySelector('td[colspan]');
+  if (placeholder) placeholder.closest('tr').remove();
+
+  const tr = document.createElement('tr');
+  tr.dataset.level = level;
+  tr.dataset.app   = app;
+  tr.innerHTML = `
+    <td class="mono">${ts}</td>
+    <td style="color:var(--info)">${app}</td>
+    <td><span class="sev ${level}">${level}</span></td>
+    <td><span class="sev ${action}">${action}</span></td>
+    <td style="color:var(--text-muted)">${etype}</td>
+    <td class="mono" style="color:var(--text-muted);font-size:11px">${patterns}</td>
+    <td class="mono">${latency}</td>`;
+  tbody.insertBefore(tr, tbody.firstChild);
+
+  // Keep max 200 rows
+  while (tbody.children.length > 200) tbody.removeChild(tbody.lastChild);
+
+  document.getElementById('entry-count').textContent = `${allEntries.length} events`;
+  applyFilter();
+}
+
+// SSE
+const es = new EventSource('/api/audit/stream');
+es.onmessage = (event) => {
+  try { addAuditRow(JSON.parse(event.data)); } catch(e) {}
+};
+
+// Also load recent on page load
+fetch('/api/audit/recent?n=50')
+  .then(r => r.json())
+  .then(data => { (data.events || []).forEach(addAuditRow); })
+  .catch(() => {});
+</script>
+
+{% endblock %}

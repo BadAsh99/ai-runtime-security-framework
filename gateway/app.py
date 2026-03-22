@@ -19,6 +19,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel, Field
 
@@ -223,6 +224,13 @@ app = FastAPI(
     title="AI Runtime Security Gateway",
     description="Central gateway with prompt injection detection & audit logging",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:9000", "http://localhost:8501", "http://0.0.0.0:9000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Phase 1: Keep pattern-based detector as fallback
@@ -483,6 +491,20 @@ async def scan_vulnerability(request: ScanRequest):
         "detection": detection,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/metrics")
+async def get_metrics():
+    """Threat metrics aggregated from audit log."""
+    from gateway.middleware.audit import get_threat_summary
+    return get_threat_summary()
+
+
+@app.get("/audit/recent")
+async def get_recent_audit(n: int = 50):
+    """Return last N audit events from log."""
+    from gateway.middleware.audit import get_recent_events
+    return {"events": get_recent_events(n)}
 
 
 @app.get("/")

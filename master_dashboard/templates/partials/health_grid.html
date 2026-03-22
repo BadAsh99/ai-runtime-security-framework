@@ -1,0 +1,33 @@
+<div class="grid-4">
+{% for svc_id, svc in services.items() %}
+<div class="service-card {% if svc.status == 'down' %}down{% endif %}">
+  <div class="service-header">
+    <div class="status-dot {{ svc.status }}"></div>
+    <div>
+      <div class="service-name">{{ svc.label }}</div>
+      <div class="service-url">{{ svc.url }}</div>
+    </div>
+  </div>
+  <div class="service-meta">
+    <div class="meta-item">
+      <div class="meta-label">Status</div>
+      <div class="meta-value" style="color:var(--{{ svc.status }})">{{ svc.status | upper }}</div>
+    </div>
+    {% if svc.latency_ms is not none %}
+    <div class="meta-item">
+      <div class="meta-label">Latency</div>
+      <div class="meta-value">{{ svc.latency_ms }}ms</div>
+    </div>
+    {% endif %}
+    {% if svc.request_count is defined %}
+    <div class="meta-item">
+      <div class="meta-label">Requests</div>
+      <div class="meta-value">{{ svc.request_count }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div style="color:var(--text-muted);font-size:13px;grid-column:1/-1">Polling services...</div>
+{% endfor %}
+</div>

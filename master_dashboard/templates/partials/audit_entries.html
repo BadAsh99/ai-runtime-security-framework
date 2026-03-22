@@ -1,0 +1,17 @@
+{% if events %}
+{% for e in events %}
+{% set level = e.threat_level | default('clean') %}
+<div class="audit-entry {{ level }}">
+  <span class="audit-time">{{ e.timestamp[:19].replace('T',' ') if e.timestamp else '—' }}</span>
+  <span class="audit-app">{{ e.app_id | default('—') }}</span>
+  <span class="audit-action">
+    <span class="sev {{ e.action_taken | default(level) }}">{{ e.action_taken | default(level) }}</span>
+    {% if e.matched_patterns %}
+    <span style="color:var(--text-muted)"> · {{ e.matched_patterns | join(', ') }}</span>
+    {% endif %}
+  </span>
+</div>
+{% endfor %}
+{% else %}
+<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No audit events yet.</div>
+{% endif %}

@@ -15,6 +15,7 @@ from typing import Any, Dict
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import sys
 import os
@@ -164,6 +165,7 @@ app = FastAPI(
     description="Analyzes content for policy violations and toxic material",
     version="1.0.0",
 )
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 analyzer = ContentAnalyzer()
 

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}AIRS — Attack Chains{% endblock %}
+{% block content %}
+
+<div class="page-title">Cross-Application Attack Chains</div>
+<div class="page-subtitle">Multi-stage exploitation paths across service boundaries · MITRE ATLAS aligned</div>
+
+<div id="chain-graphs">
+
+  <!-- AC-001 -->
+  <div class="chain-card">
+    <div class="chain-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="sev critical">CRITICAL</span>
+          <span class="chain-title">AC-001 — Content Mod → Finance Data Exfiltration</span>
+        </div>
+        <div class="chain-meta">MITRE ATLAS: AML.T0054 · Apps: content-mod → finance · Shared LLM context bleed</div>
+      </div>
+      <button class="btn btn-danger" id="chain-btn-AC-001" onclick="runAttackChain('AC-001')">Execute Chain</button>
+    </div>
+    <div class="chain-body">
+      <div id="graph-AC-001"></div>
+      <div style="margin-top:12px">
+        <div class="section-title">Steps</div>
+        <div style="font-size:13px">
+          <div class="metric-row"><span>1</span><span>Inject system prompt override via content submission <span style="color:var(--text-muted)">(PI-001)</span></span></div>
+          <div class="metric-row"><span>2</span><span>Poisoned context propagates via shared LLM API key/session</span></div>
+          <div class="metric-row"><span>3</span><span>Finance app executes injected instructions, leaks financial data <span style="color:var(--text-muted)">(EX-003)</span></span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text-muted)">
+        <strong style="color:var(--text)">Remediation:</strong> Isolate LLM API keys per service. Use separate system prompt contexts. Implement output scanning at each service boundary.
+      </div>
+      <div id="chain-result-AC-001" style="margin-top:8px;font-size:12px"></div>
+    </div>
+  </div>
+
+  <!-- AC-002 -->
+  <div class="chain-card">
+    <div class="chain-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="sev critical">CRITICAL</span>
+          <span class="chain-title">AC-002 — Support Chatbot → Admin Credential Theft</span>
+        </div>
+        <div class="chain-meta">MITRE ATLAS: AML.T0054.002 · Indirect Prompt Injection · Apps: support → external</div>
+      </div>
+      <button class="btn btn-danger" id="chain-btn-AC-002" onclick="runAttackChain('AC-002')">Execute Chain</button>
+    </div>
+    <div class="chain-body">
+      <div id="graph-AC-002"></div>
+      <div style="margin-top:12px">
+        <div class="section-title">Steps</div>
+        <div style="font-size:13px">
+          <div class="metric-row"><span>1</span><span>Submit crafted customer message with indirect injection payload <span style="color:var(--text-muted)">(PI-006)</span></span></div>
+          <div class="metric-row"><span>2</span><span>LLM processes malicious context without sanitization</span></div>
+          <div class="metric-row"><span>3</span><span>Admin credentials extracted from system prompt <span style="color:var(--text-muted)">(EX-005)</span></span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text-muted)">
+        <strong style="color:var(--text)">Remediation:</strong> Sanitize all external data before LLM context inclusion. Never store credentials in system prompts. Filter credential patterns in output.
+      </div>
+      <div id="chain-result-AC-002" style="margin-top:8px;font-size:12px"></div>
+    </div>
+  </div>
+
+  <!-- AC-003 -->
+  <div class="chain-card">
+    <div class="chain-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="sev high">HIGH</span>
+          <span class="chain-title">AC-003 — Cross-App Payload Propagation</span>
+        </div>
+        <div class="chain-meta">MITRE ATLAS: AML.T0054.003 · Multi-Stage Injection · Apps: all 3 services compromised</div>
+      </div>
+      <button class="btn btn-danger" id="chain-btn-AC-003" onclick="runAttackChain('AC-003')">Execute Chain</button>
+    </div>
+    <div class="chain-body">
+      <div id="graph-AC-003"></div>
+      <div style="margin-top:12px">
+        <div class="section-title">Steps</div>
+        <div style="font-size:13px">
+          <div class="metric-row"><span>1</span><span>Plant cross-app propagation payload in content-mod <span style="color:var(--text-muted)">(PI-010)</span></span></div>
+          <div class="metric-row"><span>2</span><span>Payload embedded in shared LLM context window</span></div>
+          <div class="metric-row"><span>3</span><span>Finance service executes cross-app instructions</span></div>
+          <div class="metric-row"><span>4</span><span>Support service also compromised via same shared context</span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text-muted)">
+        <strong style="color:var(--text)">Remediation:</strong> Implement context isolation per service. Use session-scoped LLM contexts. Deploy output classification to detect injected instructions.
+      </div>
+      <div id="chain-result-AC-003" style="margin-top:8px;font-size:12px"></div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

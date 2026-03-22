@@ -1,0 +1,33 @@
+{% if metrics %}
+<div class="metric-row">
+  <span class="metric-label">Total Requests</span>
+  <span class="metric-value">{{ metrics.total_requests | default(0) }}</span>
+</div>
+<div class="metric-row">
+  <span class="metric-label">Blocked</span>
+  <span class="metric-value" style="color:var(--critical)">{{ metrics.blocked | default(0) }}</span>
+</div>
+<div class="metric-row">
+  <span class="metric-label">Rate Limit Hits</span>
+  <span class="metric-value" style="color:var(--medium)">{{ metrics.rate_limit_hits | default(0) }}</span>
+</div>
+{% set tbl = metrics.threats_by_level | default({}) %}
+<div class="metric-row">
+  <span class="metric-label">Critical</span>
+  <span class="metric-value" style="color:var(--critical)">{{ tbl.critical | default(0) }}</span>
+</div>
+<div class="metric-row">
+  <span class="metric-label">High</span>
+  <span class="metric-value" style="color:var(--high)">{{ tbl.high | default(0) }}</span>
+</div>
+<div class="metric-row">
+  <span class="metric-label">Medium</span>
+  <span class="metric-value" style="color:var(--medium)">{{ tbl.medium | default(0) }}</span>
+</div>
+<div class="metric-row">
+  <span class="metric-label">Clean</span>
+  <span class="metric-value" style="color:var(--clean)">{{ tbl.clean | default(0) }}</span>
+</div>
+{% else %}
+<div style="color:var(--text-muted);font-size:13px">No metrics yet — fire some payloads or send requests through the gateway.</div>
+{% endif %}

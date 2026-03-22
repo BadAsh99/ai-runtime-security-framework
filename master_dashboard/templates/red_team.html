@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}AIRS — Red Team{% endblock %}
+{% block content %}
+
+<div class="page-title">Red Team Control Panel</div>
+<div class="page-subtitle">Fire OWASP LLM Top 10 attack payloads at target services · Results logged to audit stream</div>
+
+<div class="grid-2">
+
+  <!-- Payload Library -->
+  <div>
+    <div class="section-title">Prompt Injection Payloads</div>
+    <div class="payload-grid" id="inj-payloads">
+      <div style="color:var(--text-muted);font-size:12px">Loading payloads...</div>
+    </div>
+
+    <div class="section-title" style="margin-top:20px">Data Exfiltration Payloads</div>
+    <div class="payload-grid" id="exfil-payloads">
+      <div style="color:var(--text-muted);font-size:12px">Loading payloads...</div>
+    </div>
+  </div>
+
+  <!-- Fire Panel -->
+  <div>
+    <div class="fire-panel">
+      <div class="section-title">Fire Payload</div>
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">
+        Selected: <span id="selected-pid" style="color:var(--accent);font-family:var(--font)">none</span>
+      </div>
+
+      <div class="form-group" style="margin-bottom:12px">
+        <div class="form-label">Payload Text</div>
+        <textarea id="payload-text" placeholder="Select a payload above or type your own..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Target Service</div>
+          <select id="target-select">
+            <option value="gateway">Gateway (port 8000) — tests detection</option>
+            <option value="content-mod">Content Mod (port 8001) — direct</option>
+            <option value="finance">Finance (port 8002) — direct</option>
+            <option value="support">Support (port 8003) — direct</option>
+            <option value="via-gateway-content">Via Gateway → Content</option>
+            <option value="via-gateway-finance">Via Gateway → Finance</option>
+            <option value="via-gateway-support">Via Gateway → Support</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+        <button class="btn btn-danger" id="fire-btn" onclick="firePayload()">Fire Payload</button>
+        <span id="fire-status" style="font-family:var(--font);font-size:13px;font-weight:600"></span>
+      </div>
+
+      <div id="fire-result" class="result-box" style="display:none"></div>
+    </div>
+
+    <!-- Recent Results -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-header">
+        <div class="card-title">Recent Results</div>
+        <span class="htmx-indicator"><span class="spinner"></span></span>
+      </div>
+      <div id="vuln-table"
+           hx-get="/partials/vuln-table"
+           hx-trigger="load, every 5s"
+           hx-swap="innerHTML">
+        <div style="color:var(--text-muted);font-size:12px">No results yet.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Load payload library from API
+async function loadPayloads() {
+  const res = await fetch('/api/red-team/payloads');
+  const data = await res.json();
+  renderPayloads('inj-payloads', data.prompt_injection || []);
+  renderPayloads('exfil-payloads', data.data_exfiltration || []);
+}
+
+function renderPayloads(containerId, payloads) {
+  const el = document.getElementById(containerId);
+  if (!payloads.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:12px">None loaded</div>'; return; }
+  el.innerHTML = payloads.map(p => `
+    <div class="payload-item" onclick="selectPayloadFromLib(this, '${p.id}', ${JSON.stringify(p.preview || p.name || p.id)})">
+      <div class="payload-id">${p.id}</div>
+      <div class="payload-name">${p.name || '—'}</div>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <span class="sev ${p.severity || 'info'}">${p.severity || '—'}</span>
+        <span class="payload-type">${p.type || p.target_field || '—'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Fetch full payload text then select
+async function selectPayloadFromLib(el, payloadId) {
+  document.querySelectorAll('.payload-item').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedPayload = payloadId;
+  document.getElementById('selected-pid').textContent = payloadId;
+  // Show placeholder — real payload text lives in the scanner files
+  document.getElementById('payload-text').value = `[${payloadId}] — payload loaded. Edit or fire directly.`;
+  document.getElementById('fire-result').style.display = 'none';
+}
+
+// Override firePayload to show result box
+const origFire = window.firePayload;
+window.firePayload = async function() {
+  const rb = document.getElementById('fire-result');
+  rb.style.display = 'block';
+  await origFire();
+};
+
+document.addEventListener('DOMContentLoaded', loadPayloads);
+</script>
+
+{% endblock %}

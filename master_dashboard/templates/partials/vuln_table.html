@@ -1,0 +1,28 @@
+{% if results %}
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Payload</th>
+      <th>Target</th>
+      <th>Detected</th>
+      <th>Risk</th>
+      <th>Latency</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in results | reverse %}
+    <tr>
+      <td class="mono" style="font-size:11px">{{ r.timestamp[:19].replace('T',' ') if r.timestamp else '—' }}</td>
+      <td><span class="mono" style="color:var(--accent)">{{ r.payload_id }}</span></td>
+      <td style="color:var(--text-muted)">{{ r.target }}</td>
+      <td><span class="sev {% if r.detected %}blocked{% else %}allowed{% endif %}">{% if r.detected %}DETECTED{% else %}passed{% endif %}</span></td>
+      <td><span class="sev {{ r.risk_level | default('—') }}">{{ r.risk_level | default('—') }}</span></td>
+      <td class="mono">{{ r.latency_ms }}ms</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No red team activity yet.</div>
+{% endif %}

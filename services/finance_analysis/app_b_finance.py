@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import sys
 import os
@@ -237,6 +238,7 @@ app = FastAPI(
     description="Analyzes financial queries and market data",
     version="1.0.0",
 )
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 analyzer = FinanceAnalyzer()
 

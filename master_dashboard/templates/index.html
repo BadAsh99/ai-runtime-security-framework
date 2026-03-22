@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}AIRS — Overview{% endblock %}
+{% block content %}
+
+<div class="page-title">AI Runtime Security — Overview</div>
+<div class="page-subtitle">Real-time monitoring across all microservices · AIRS Framework v1.0</div>
+
+<!-- Health Grid: auto-refresh via HTMX every 4s -->
+<div class="section">
+  <div class="section-title">Service Health</div>
+  <div id="health-grid"
+       hx-get="/partials/health-grid"
+       hx-trigger="load, every 4s"
+       hx-swap="innerHTML">
+    <div style="color:var(--text-muted);font-size:13px">Loading services...</div>
+  </div>
+</div>
+
+<!-- Metrics + Audit side by side -->
+<div class="grid-2 section">
+  <!-- Threat Metrics -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Threat Metrics</div>
+      <span class="htmx-indicator"><span class="spinner"></span></span>
+    </div>
+    <div id="metrics-panel"
+         hx-get="/partials/metrics-summary"
+         hx-trigger="load, every 6s"
+         hx-swap="innerHTML">
+      <div style="color:var(--text-muted)">Loading metrics...</div>
+    </div>
+  </div>
+
+  <!-- Live Audit Feed -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Live Audit Feed</div>
+      <span class="badge live">SSE</span>
+    </div>
+    <div class="audit-feed" id="audit-feed">
+      <div style="color:var(--text-muted);font-size:12px;padding:8px 0">Connecting to audit stream...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Red Team Results -->
+<div class="section">
+  <div class="section-title">Red Team Activity</div>
+  <div id="vuln-table"
+       hx-get="/partials/vuln-table"
+       hx-trigger="load, every 8s"
+       hx-swap="innerHTML">
+    <div style="color:var(--text-muted);font-size:13px">No red team activity yet — go to <a href="/red-team" style="color:var(--accent)">Red Team</a> to fire payloads.</div>
+  </div>
+</div>
+
+{% endblock %}
