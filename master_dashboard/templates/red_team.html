@@ -18,6 +18,7 @@
     <div class="payload-grid" id="exfil-payloads">
       <div style="color:var(--text-muted);font-size:12px">Loading payloads...</div>
     </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Click a payload to load its text into the fire panel →</div>
   </div>
 
   <!-- Fire Panel -->
@@ -97,24 +98,7 @@ function renderPayloads(containerId, payloads) {
   `).join('');
 }
 
-// Fetch full payload text then select
-async function selectPayloadFromLib(el, payloadId) {
-  document.querySelectorAll('.payload-item').forEach(p => p.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedPayload = payloadId;
-  document.getElementById('selected-pid').textContent = payloadId;
-  // Show placeholder — real payload text lives in the scanner files
-  document.getElementById('payload-text').value = `[${payloadId}] — payload loaded. Edit or fire directly.`;
-  document.getElementById('fire-result').style.display = 'none';
-}
-
-// Override firePayload to show result box
-const origFire = window.firePayload;
-window.firePayload = async function() {
-  const rb = document.getElementById('fire-result');
-  rb.style.display = 'block';
-  await origFire();
-};
+// selectPayloadFromLib is defined in dashboard.js — fetches real payload text from /api/red-team/payload/{id}
 
 document.addEventListener('DOMContentLoaded', loadPayloads);
 </script>

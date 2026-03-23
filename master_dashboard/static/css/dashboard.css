@@ -281,3 +281,30 @@ tr:hover td { background: var(--bg3); }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Attack Chain Step Animation ─────────────────────────────────────────── */
+.step-row {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.3s;
+}
+.step-row.pending   { color: var(--text-muted); background: var(--bg3); }
+.step-row.detected  { color: var(--high); background: #f0883e11; }
+.step-row.compromised { color: var(--clean); background: #3fb95011; }
+.step-row.skipped   { color: var(--text-muted); opacity: 0.6; }
+.spinner-sm { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pid-badge {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: var(--accent);
+  font-family: var(--font);
+}

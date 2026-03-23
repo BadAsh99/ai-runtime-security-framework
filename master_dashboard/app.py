@@ -253,21 +253,36 @@ async def _tail_audit(request: Request) -> AsyncGenerator:
 async def api_payloads():
     try:
         from scanner.exploits.prompt_injection import PAYLOADS as inj_payloads
-        from scanner.exploits.data_exfiltration import PAYLOADS as exfil_payloads
+        from scanner.exploits.data_exfiltration import EXFIL_PAYLOADS as exfil_payloads
         return {
             "prompt_injection": [
-                {"id": p.payload_id, "name": p.name, "type": p.injection_type,
+                {"id": p.id, "name": p.name, "type": p.type,
                  "severity": p.severity, "target_apps": p.target_apps}
                 for p in inj_payloads
             ],
             "data_exfiltration": [
-                {"id": p.payload_id, "name": p.name, "target_field": p.target_field,
+                {"id": p.id, "name": p.name, "target_field": p.exfil_type,
                  "severity": p.severity, "target_apps": p.target_apps}
                 for p in exfil_payloads
             ],
         }
     except Exception as e:
         return {"error": str(e), "prompt_injection": [], "data_exfiltration": []}
+
+@app.get("/api/red-team/payload/{payload_id}")
+async def api_get_payload_text(payload_id: str):
+    try:
+        from scanner.exploits.prompt_injection import PAYLOADS as inj
+        from scanner.exploits.data_exfiltration import EXFIL_PAYLOADS as exfil
+        for p in inj:
+            if p.id == payload_id:
+                return {"id": p.id, "text": p.prompt, "name": p.name, "severity": p.severity}
+        for p in exfil:
+            if p.id == payload_id:
+                return {"id": p.id, "text": p.prompt, "name": p.name, "severity": p.severity}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"error": f"Payload {payload_id} not found"}, status_code=404)
 
 @app.post("/api/red-team/fire")
 async def api_fire_payload(body: dict):
@@ -320,19 +335,16 @@ async def api_fire_payload(body: dict):
 async def api_run_chain(body: dict):
     """Execute all steps of an attack chain and return per-step results."""
     chain_id = body.get("chain_id", "AC-001")
-    chains = (await api_attack_chains()).value if hasattr(await api_attack_chains(), 'value') else await api_attack_chains()
-
-    # Get chain definition
+    chains = await api_attack_chains()
     chain = next((c for c in chains if c["chain_id"] == chain_id), None)
     if not chain:
         return JSONResponse({"error": f"Chain {chain_id} not found"}, status_code=404)
 
-    # Build payload map
     try:
         from scanner.exploits.prompt_injection import PAYLOADS as inj
-        from scanner.exploits.data_exfiltration import PAYLOADS as exfil
-        payload_map = {p.payload_id: p.payload for p in inj}
-        payload_map.update({p.payload_id: p.payload for p in exfil})
+        from scanner.exploits.data_exfiltration import EXFIL_PAYLOADS as exfil
+        payload_map = {p.id: p.prompt for p in inj}
+        payload_map.update({p.id: p.prompt for p in exfil})
     except Exception:
         payload_map = {}
 
@@ -348,18 +360,66 @@ async def api_run_chain(body: dict):
         if target_svc not in ("content-mod", "finance", "support", "gateway"):
             target_svc = "gateway"
 
-        fire_result = await api_fire_payload({
-            "target": target_svc,
-            "payload": payload_text,
-            "payload_id": pid,
-        })
-        if hasattr(fire_result, "body"):
-            step_result = json.loads(fire_result.body)
-        else:
-            step_result = fire_result
+        fire_result = await api_fire_payload({"target": target_svc, "payload": payload_text, "payload_id": pid})
+        step_result = json.loads(fire_result.body) if hasattr(fire_result, "body") else fire_result
         results.append({"step": step["step"], "action": step["action"], **step_result})
 
     return {"chain_id": chain_id, "chain_name": chain["name"], "steps": results}
+
+@app.post("/api/red-team/attack-chain/stream")
+async def api_run_chain_stream(body: dict, request: Request):
+    """Execute attack chain step-by-step, streaming each result via SSE."""
+    chain_id = body.get("chain_id", "AC-001")
+    return EventSourceResponse(_execute_chain_steps(chain_id, request))
+
+async def _execute_chain_steps(chain_id: str, request: Request) -> AsyncGenerator:
+    chains = await api_attack_chains()
+    chain = next((c for c in chains if c["chain_id"] == chain_id), None)
+    if not chain:
+        yield {"data": json.dumps({"event": "error", "message": f"Chain {chain_id} not found"})}
+        return
+
+    try:
+        from scanner.exploits.prompt_injection import PAYLOADS as inj
+        from scanner.exploits.data_exfiltration import EXFIL_PAYLOADS as exfil
+        payload_map = {p.id: p.prompt for p in inj}
+        payload_map.update({p.id: p.prompt for p in exfil})
+    except Exception:
+        payload_map = {}
+
+    yield {"data": json.dumps({"event": "chain_start", "chain_id": chain_id,
+                                "chain_name": chain["name"], "total_steps": len(chain["steps"])})}
+    await asyncio.sleep(0.3)
+
+    for step in chain["steps"]:
+        if await request.is_disconnected():
+            break
+
+        pid = step.get("payload_id")
+        yield {"data": json.dumps({"event": "step_start", "step": step["step"],
+                                    "action": step["action"], "from": step.get("from", ""),
+                                    "to": step.get("to", ""), "payload_id": pid})}
+        await asyncio.sleep(0.6)
+
+        if not pid:
+            yield {"data": json.dumps({"event": "step_complete", "step": step["step"],
+                                        "action": step["action"], "skipped": True})}
+            await asyncio.sleep(0.3)
+            continue
+
+        payload_text = payload_map.get(pid, f"[{pid}] test payload")
+        target_svc = step.get("to", "gateway").lower().replace(" ", "-")
+        if target_svc not in ("content-mod", "finance", "support", "gateway"):
+            target_svc = "gateway"
+
+        fire_result = await api_fire_payload({"target": target_svc, "payload": payload_text, "payload_id": pid})
+        step_data = json.loads(fire_result.body) if hasattr(fire_result, "body") else fire_result
+        yield {"data": json.dumps({"event": "step_complete", "step": step["step"],
+                                    "action": step["action"], "to": step.get("to", ""),
+                                    **step_data})}
+        await asyncio.sleep(0.8)
+
+    yield {"data": json.dumps({"event": "chain_complete", "chain_id": chain_id})}
 
 # ─── HTMX Partials ────────────────────────────────────────────────────────────
 @app.get("/partials/health-grid", response_class=HTMLResponse)

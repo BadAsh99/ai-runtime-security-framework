@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
-from vulnerability_scanner import Vulnerability, VulnerabilityScanner, SeverityLevel
+from .vulnerability_scanner import Vulnerability, VulnerabilityScanner, SeverityLevel
 
 
 logger = logging.getLogger(__name__)
