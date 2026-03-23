@@ -308,3 +308,42 @@ tr:hover td { background: var(--bg3); }
   color: var(--accent);
   font-family: var(--font);
 }
+
+/* ── D3 Graph Tooltip ─────────────────────────────────────────────────────── */
+.graph-tooltip {
+  position: fixed;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--font);
+  color: var(--text);
+  pointer-events: none;
+  z-index: 9999;
+  max-width: 260px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.graph-tooltip.visible { opacity: 1; }
+.graph-tooltip-title {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.graph-tooltip-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 3px;
+  line-height: 1.4;
+}
+.graph-tooltip-label { color: var(--text-muted); flex-shrink: 0; }
+.graph-tooltip-val   { color: var(--text); word-break: break-word; }
+
+/* ── D3 Node Glow (post-execution) ───────────────────────────────────────── */
+.node-glow-compromised { filter: drop-shadow(0 0 6px #f85149); }
+.node-glow-detected    { filter: drop-shadow(0 0 6px #f0883e); }

@@ -1,4 +1,4 @@
-const PROJECT_DIR = '/home/parallels/Desktop/ai-runtime-security-framework-desktop';
+const PROJECT_DIR = '/home/parallels/Code/my-dev-environments/ai-runtime-security-framework';
 const PYTHON = `${PROJECT_DIR}/venv/bin/python`;
 const STREAMLIT = `${PROJECT_DIR}/venv/bin/streamlit`;
 
@@ -101,9 +101,9 @@ module.exports = {
     },
     {
       name: 'airs-streamlit',
-      interpreter: 'bash',
-      script: '-c',
-      args: `${STREAMLIT} run dashboard/streamlit_app.py --server.port 8501 --server.headless true --server.address 0.0.0.0`,
+      script: STREAMLIT,
+      args: 'run dashboard/streamlit_app.py --server.port 8501 --server.headless true --server.address 0.0.0.0',
+      interpreter: 'none',
       cwd: PROJECT_DIR,
       env: {
         PYTHONPATH: PROJECT_DIR,
